@@ -18,11 +18,37 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	"bitbucket.org/homemade/hmd.io/log"
 )
+
+type reg struct {
+	reg  *regexp.Regexp
+	subs string
+}
+
+var concealers = []reg{
+	reg{
+		reg:  regexp.MustCompile("\"number\":\"\\d+\""),
+		subs: `"number:"*******"`,
+	},
+
+	reg{
+		reg:  regexp.MustCompile("\"cvv2\":\"\\d+\""),
+		subs: `"cvv2":"***"`,
+	},
+	reg{
+		reg:  regexp.MustCompile("\"expire_month\":\"\\d+\""),
+		subs: `"expire_month":"**"`,
+	},
+	reg{
+		reg:  regexp.MustCompile("\"expire_year\":\"\\d+\""),
+		subs: `"expire_year":"**"`,
+	},
+}
 
 type Session struct {
 	Client          *http.Client
@@ -134,6 +160,10 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 		log.Info(s.LogInfo + "--------------------------------------------------------------------------------")
 		log.Info(s.LogInfo + fmt.Sprintf("%v", req))
 		log.Info(s.LogInfo + "Payload: ")
+		for _, r := range concealers {
+			payloadStr = r.reg.ReplaceAllString(payloadStr, r.subs)
+		}
+
 		log.Info(s.LogInfo + payloadStr)
 	}
 	r.timestamp = time.Now()
