@@ -7,10 +7,11 @@ package napping
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
+
+	"bitbucket.org/homemade/hmd.io/log"
 )
 
 func prettyPrint(v interface{}) {
@@ -19,5 +20,5 @@ func prettyPrint(v interface{}) {
 	file = filepath.Base(file)
 	b, _ := json.MarshalIndent(v, "", "\t")
 	s := file + ":" + lineNo + ": \n" + string(b) + "\n"
-	os.Stderr.WriteString(s)
+	log.Info(s)
 }

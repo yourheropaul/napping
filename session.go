@@ -14,15 +14,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
-)
 
-import ()
+	"bitbucket.org/homemade/hmd.io/log"
+)
 
 type Session struct {
 	Client          *http.Client
@@ -32,6 +32,7 @@ type Session struct {
 	// Optional
 	Userinfo *url.Userinfo
 	Header   *http.Header
+	LogInfo  string
 }
 
 // Send constructs and sends an HTTP request.
@@ -43,7 +44,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	//
 	u, err := url.Parse(r.Url)
 	if err != nil {
-		log.Println(err)
+		log.Err(err.Error())
 		return
 	}
 	//
@@ -69,24 +70,26 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 		}
 	}
 	var req *http.Request
+	var payloadStr string
 	if r.Payload != nil {
 		var b []byte
 		b, err = json.Marshal(&r.Payload)
 		if err != nil {
-			log.Println(err)
+			log.Err(err.Error())
 			return
 		}
 		buf := bytes.NewBuffer(b)
+		payloadStr = buf.String()
 		req, err = http.NewRequest(r.Method, u.String(), buf)
 		if err != nil {
-			log.Println(err)
+			log.Err(err.Error())
 			return
 		}
 		header.Add("Content-Type", "application/json")
 	} else { // no data to encode
 		req, err = http.NewRequest(r.Method, u.String(), nil)
 		if err != nil {
-			log.Println(err)
+			log.Err(err.Error())
 			return
 		}
 
@@ -126,12 +129,12 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	// Execute the HTTP request
 	//
 	if s.Log {
-		log.Println("--------------------------------------------------------------------------------")
-		log.Println("REQUEST")
-		log.Println("--------------------------------------------------------------------------------")
-		prettyPrint(req)
-		log.Print("Payload: ")
-		prettyPrint(r.Payload)
+		log.Info(s.LogInfo + "--------------------------------------------------------------------------------")
+		log.Info(s.LogInfo + "REQUEST")
+		log.Info(s.LogInfo + "--------------------------------------------------------------------------------")
+		log.Info(s.LogInfo + fmt.Sprintf("%v", req))
+		log.Info(s.LogInfo + "Payload: ")
+		log.Info(s.LogInfo + payloadStr)
 	}
 	r.timestamp = time.Now()
 	var client *http.Client
@@ -142,7 +145,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println(err)
+		log.Err(err.Error())
 		return
 	}
 	defer resp.Body.Close()
@@ -153,7 +156,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	//
 	r.body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(err)
+		log.Err(err.Error())
 		return
 	}
 	if string(r.body) != "" {
@@ -167,22 +170,21 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	rsp := Response(*r)
 	response = &rsp
 	if s.Log {
-		log.Println("--------------------------------------------------------------------------------")
-		log.Println("RESPONSE")
-		log.Println("--------------------------------------------------------------------------------")
-		log.Println("Status: ", response.status)
-		log.Println("Header:")
-		prettyPrint(response.HttpResponse().Header)
-		log.Println("Body:")
+		log.Info(s.LogInfo + "--------------------------------------------------------------------------------")
+		log.Info(s.LogInfo + "RESPONSE")
+		log.Info(s.LogInfo + "--------------------------------------------------------------------------------")
+		log.Info(s.LogInfo+"Status: %v", response.status)
+		log.Info(s.LogInfo+"Header: %+v", response.HttpResponse().Header)
+		log.Info("Body:")
 		if response.body != nil {
 			raw := json.RawMessage{}
 			if json.Unmarshal(response.body, &raw) == nil {
-				prettyPrint(&raw)
+				log.Info(s.LogInfo + string(raw))
 			} else {
-				prettyPrint(response.RawText())
+				log.Info(s.LogInfo + string(response.RawText()))
 			}
 		} else {
-			log.Println("Empty response body")
+			log.Info(s.LogInfo + "Empty response body")
 		}
 
 	}
